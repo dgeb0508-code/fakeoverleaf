@@ -16,7 +16,7 @@ import soundfile as sf
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(ROOT, "tts_models", "vits-mimic3-ko_KO-kss_low")
 SPEED = 1.0
-SENTENCE_GAP = 0.35   # 문장 사이 무음(초). 모델 자체 호흡보다 또렷하게 끊어 읽힌다.
+SENTENCE_GAP = 0.25   # 문장 사이 무음(초)
 COMMA_GAP = 0.12
 
 
