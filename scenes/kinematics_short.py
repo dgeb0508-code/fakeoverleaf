@@ -11,7 +11,7 @@ from manim import *
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
-from narration import SEGMENTS  # noqa: E402
+from narration_physics import SEGMENTS  # noqa: E402
 
 config.pixel_width, config.pixel_height = 1080, 1920
 config.frame_width, config.frame_height = 9, 16
@@ -31,7 +31,7 @@ def ktext(s, size=34, color=WHITE, weight=BOLD, **kw):
 class KinematicsShort(Scene):
     # ---------- 오디오 싱크 ----------
     def load_audio(self):
-        with open(os.path.join(ROOT, "output", "audio", "durations.json")) as f:
+        with open(os.path.join(ROOT, "output", "audio", "physics", "durations.json")) as f:
             self.durations = json.load(f)
         self.segs = {s["id"]: s for s in SEGMENTS}
 
@@ -40,7 +40,7 @@ class KinematicsShort(Scene):
         오디오 길이에 비례 배분해 재생한다. 애니메이션 없는 step은 wait."""
         seg = self.segs[seg_id]
         d = self.durations[seg_id]
-        self.add_sound(os.path.join(ROOT, "output", "audio", f"{seg_id}.wav"))
+        self.add_sound(os.path.join(ROOT, "output", "audio", "physics", f"{seg_id}.wav"))
         self.show_caption(seg["caption"], seg.get("hi", []))
         total_w = sum(w for _, w in steps)
         budget = d - tail
