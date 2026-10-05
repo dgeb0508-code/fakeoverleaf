@@ -1,2 +1,4 @@
-toolkit/
-backups/
+media/
+output/audio/
+tts_models/
+__pycache__/

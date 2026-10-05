@@ -1,47 +1,26 @@
 #!/usr/bin/env bash
-# Overleaf Community Edition 설치/실행.
-#   ./setup.sh             -> http://localhost 에서만 접속 (테스트용)
-#   ./setup.sh <도메인>     -> https://<도메인> 으로 외부 접속 (Caddy가 HTTPS 인증서 자동 발급)
+# 클라우드 세션/새 머신에서 렌더링 환경을 만든다 (Debian/Ubuntu, root 또는 sudo).
 set -euo pipefail
 cd "$(dirname "$0")"
-DOMAIN="${1:-}"
 
-[[ -d toolkit ]] || git clone --depth 1 https://github.com/overleaf/toolkit.git toolkit
-cd toolkit
-[[ -f config/overleaf.rc ]] || bin/init
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq --no-install-recommends \
+  ffmpeg libcairo2-dev libpango1.0-dev pkg-config python3-dev python3-venv build-essential \
+  fonts-noto-cjk fonts-nanum \
+  texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-science texlive-lang-korean dvisvgm
+fc-cache -f
 
-# 설정 파일의 KEY=... 줄(주석 처리된 것 포함)을 KEY=VALUE 로 바꾼다.
-set_var() { sed -i "s|^#\? \?$2=.*|$2=$3|" "$1"; }
+# Debian 시스템 pip은 srt 휠 빌드가 깨지므로 venv를 쓴다.
+python3 -m venv /opt/manim-venv
+/opt/manim-venv/bin/pip install -q -U pip setuptools wheel
+/opt/manim-venv/bin/pip install -q -r requirements.txt
 
-# CE는 컴파일 격리를 지원하지 않는다. 경고만 끄는 설정이고 동작은 같다.
-set_var config/overleaf.rc SIBLING_CONTAINERS_ENABLED false
-
-if [[ -n "$DOMAIN" ]]; then
-  # 80/443은 Caddy가 쓰고, Overleaf는 내부 8080으로 비켜준다.
-  set_var config/overleaf.rc OVERLEAF_PORT 8080
-  set_var config/variables.env OVERLEAF_SITE_URL "https://$DOMAIN"
-  set_var config/variables.env OVERLEAF_BEHIND_PROXY true
-  set_var config/variables.env OVERLEAF_SECURE_COOKIE true
-  cat > config/docker-compose.override.yml <<YAML
-services:
-  caddy:
-    image: caddy:2
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    command: caddy reverse-proxy --from $DOMAIN --to sharelatex:80
-    volumes:
-      - ../data/caddy:/data
-YAML
-  URL="https://$DOMAIN"
-else
-  rm -f config/docker-compose.override.yml
-  URL="http://localhost"
+# 한국어 TTS 모델 (GitHub 릴리스; huggingface.co 가 막힌 환경에서도 받아진다)
+if [ ! -f tts_models/vits-mimic3-ko_KO-kss_low/ko_KO-kss_low.onnx ]; then
+  mkdir -p tts_models
+  curl -sSL -o /tmp/ko.tar.bz2 \
+    https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-mimic3-ko_KO-kss_low.tar.bz2
+  tar xjf /tmp/ko.tar.bz2 -C tts_models && rm /tmp/ko.tar.bz2
 fi
-
-bin/up -d
-
-echo
-echo "실행 완료. 처음 몇 분은 기동 중이라 접속이 안 될 수 있습니다."
-echo "관리자 계정 만들기: $URL/launchpad"
+echo "setup done. render with: ./render.sh"

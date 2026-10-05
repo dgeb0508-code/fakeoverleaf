@@ -1,56 +1,37 @@
-# fakeoverleaf
+# 수능 물리 숏폼 (manim + TTS)
 
-공식 [Overleaf Community Edition](https://github.com/overleaf/toolkit)을 내 서버에 띄워서 아는 사람들끼리 무료로 LaTeX 실시간 공동 편집을 하기 위한 스크립트 모음.
+수능·평가원 유형 물리 문제를 manim 세로 영상(1080×1920)으로 풀이하고, 한국어 TTS 나레이션을 자동으로 싱크한다.
 
-| 파일 | 하는 일 |
+## 구조
+
+| 경로 | 역할 |
 |---|---|
-| `setup.sh` | Overleaf 툴킷 받기 → 설정 → 실행. 도메인을 주면 Caddy가 HTTPS까지 자동 처리 |
-| `install-full-texlive.sh` | TeX Live 전체 설치(한글 `kotex` 포함). 기본 이미지는 최소 설치라 패키지가 거의 없음 |
-| `backup.sh` | 데이터를 `backups/`에 압축 백업 |
+| `scripts/narration.py` | 대본. 세그먼트마다 `say`(TTS가 읽는 문장, 숫자는 한글)와 `caption`(화면 자막) |
+| `scripts/tts.py` | 세그먼트별 wav 생성, 길이를 `output/audio/durations.json`에 기록 |
+| `scenes/kinematics_short.py` | manim 씬. 각 세그먼트의 애니메이션을 오디오 길이에 비례 배분 |
+| `setup.sh` | apt(한글 폰트, TeX Live + kotex, cairo/pango) + venv + TTS 모델 다운로드 |
+| `render.sh` | TTS → 렌더 → `output/kinematics_short.mp4` |
 
-## 서버 조건
-
-- **x86_64(amd64) 리눅스.** Overleaf 공식 이미지는 ARM을 지원하지 않는다. Oracle 무료 ARM VM이나 라즈베리파이에서는 안 돌아간다.
-- RAM 4GB 이상, 디스크 20GB 이상(TeX Live 전체 설치가 약 8GB).
-- 외부에서 80, 443 포트로 들어올 수 있어야 한다(클라우드 방화벽이나 공유기 포트포워딩).
-- Docker: `curl -fsSL https://get.docker.com | sudo sh`
-
-## 설치
+## 사용
 
 ```bash
-git clone https://github.com/dgeb0508-code/fakeoverleaf.git
-cd fakeoverleaf
-sudo ./setup.sh <도메인>
-sudo ./install-full-texlive.sh   # 수십 분 걸림. 한 번만 하면 됨
+./setup.sh     # 최초 1회
+./render.sh
 ```
 
-도메인이 없으면 둘 중 하나를 쓴다.
-- 가입 없이 바로: 서버 공인 IP가 `203.0.113.5`이면 `203-0-113-5.sslip.io`
-- 고정 주소: [DuckDNS](https://www.duckdns.org)에서 무료 서브도메인을 받아 서버 IP로 지정
+## 싱크 방식
 
-인증서 발급과 Overleaf 기동에 몇 분 걸린다. 끝나면 `https://<도메인>/launchpad`에서 관리자 계정을 만든다.
+`Scene.segment(seg_id, steps)` 가 오디오를 `add_sound` 로 깔고 자막을 띄운 뒤,
+`steps = [(애니메이션 목록, 가중치), ...]` 를 오디오 길이에 비례해 `run_time` 으로 나눠 재생한다.
+대본을 고치면 음성 길이가 바뀌고 애니메이션이 자동으로 따라간다.
 
-내 PC에서 먼저 써보려면 `sudo ./setup.sh`(인자 없이)로 실행하고 `http://localhost`로 접속하면 된다.
+## TTS 교체
 
-## 사람 초대하기
+`scripts/tts.py` 의 `synth()` 만 바꾸면 된다. 현재는 sherpa-onnx + VITS(KSS, 여성 음성)이며 CPU에서 실시간의 10배 이상 속도로 돈다.
+허깅페이스 보이스 클로닝 모델(본인 음성 파인튜닝)로 바꾸려면 해당 모델을 받아 `synth()` 에서 호출하고 wav를 같은 경로에 쓰면 된다.
 
-CE에는 아무나 가입하는 기능이 없다. 관리자가 직접 계정을 만들어 준다.
+## 첫 영상
 
-1. 관리자로 로그인 → `https://<도메인>/admin/register`에서 친구 이메일로 계정 생성
-2. 화면에 나오는 비밀번호 설정 링크를 카톡 등으로 전달(메일 서버를 설정하지 않았으니 메일은 안 간다)
-3. 프로젝트의 **Share** 메뉴에서 그 사람을 추가하거나 링크 공유를 켠다
-
-## 주의
-
-- **믿을 수 있는 사람만 초대할 것.** CE는 컴파일을 격리하지 않는다. 계정이 있는 사람은 LaTeX를 통해 서버 안에서 명령을 실행할 수 있다.
-- 변경 추적(track changes) 같은 일부 기능은 유료판(Server Pro) 전용이다.
-- Overleaf 업그레이드(`toolkit/bin/upgrade`) 후에는 `install-full-texlive.sh`를 다시 실행해야 한다.
-
-## 자주 쓰는 명령
-
-```bash
-sudo ./backup.sh                       # 백업 (잠깐 서버가 멈춤)
-sudo toolkit/bin/stop                  # 중지
-sudo toolkit/bin/start                 # 시작
-sudo toolkit/bin/logs -f web           # 로그 보기
-```
+`output/kinematics_short.mp4` (77초). 등가속도 운동에서 "구간 평균 속도 = 구간 중간 시각의 순간 속도" 로
+공식 연립 없이 v-t 그래프에 점 두 개를 찍어 푸는 평가원 유형 문항.
+문항은 평가원 원문이 아니라 같은 유형으로 재구성한 것이다 (이 작업 환경에서 kice.re.kr 접근이 막혀 원문을 가져올 수 없었음).
